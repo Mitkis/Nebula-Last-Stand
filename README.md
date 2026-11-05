@@ -207,7 +207,7 @@ NEBULA-LAST-STAND/
 
 ⸻
 
-▶️ LAUNCH THE GAME
+▶️ LAUNCH THE GAME : https://mitkis.github.io/Nebula-Last-Stand/
 
 No complicated installation required.
 
