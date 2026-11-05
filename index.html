@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>NEBULA: LAST STAND // 100 Levels Tactical Space Combat</title>
+  <meta name="description" content="NEBULA: LAST STAND - Premium 2D space shooter with 100 levels, 10 unique spaceships, procedural synth audio, credit economy, ship upgrades, and multi-phase bosses.">
+  <meta name="theme-color" content="#030712">
+
+  <!-- Sci-Fi Google Fonts with system fallbacks -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;800;900&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body tabindex="0">
+  <!-- Game Shell Container -->
+  <div class="game-container" id="gameContainer">
+    <!-- Main Render Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Visual Overlays (Damage, Screen Flash, Scanlines) -->
+    <div class="screen-flash" id="screenFlash"></div>
+    <div class="damage-vignette" id="damageVignette"></div>
+    <div class="boss-warning-overlay" id="bossWarningOverlay">
+      <div class="warning-box">
+        <div class="warning-stripes"></div>
+        <div class="warning-text-container">
+          <span class="warning-icon">⚠</span>
+          <h2 class="warning-title">CRITICAL ALERT</h2>
+          <p class="warning-sub" id="bossWarningName">MASSIVE HOSTILE DETECTED</p>
+        </div>
+        <div class="warning-stripes"></div>
+      </div>
+    </div>
+    <div class="crt-scanlines"></div>
+
+    <!-- Toast Notification Banner -->
+    <div class="toast-notification" id="toastNotification">
+      <span class="toast-icon">★</span>
+      <span class="toast-text" id="toastText">ACHIEVEMENT UNLOCKED!</span>
+    </div>
+
+    <!-- In-Game HUD -->
+    <div class="hud" id="gameHud">
+      <!-- Top Left: Player Status (Hull & Shield & Special Ability) -->
+      <div class="hud-panel hud-status">
+        <div class="status-row">
+          <span class="hud-label">HULL</span>
+          <div class="meter-bar-container">
+            <div class="meter-bar hull-bar" id="hullBar" style="width: 100%;"></div>
+            <div class="meter-ghost" id="hullGhost"></div>
+          </div>
+          <span class="hud-value" id="hullText">100%</span>
+        </div>
+        <div class="status-row">
+          <span class="hud-label">SHIELD</span>
+          <div class="meter-bar-container">
+            <div class="meter-bar shield-bar" id="shieldBar" style="width: 100%;"></div>
+          </div>
+          <span class="hud-value" id="shieldText">100%</span>
+        </div>
+        <!-- Special Weapon Gauge (Hyper Beam) -->
+        <div class="status-row special-row">
+          <span class="hud-label">BEAM</span>
+          <div class="meter-bar-container">
+            <div class="meter-bar beam-bar" id="beamBar" style="width: 0%;"></div>
+          </div>
+          <span class="hud-value beam-ready-tag" id="beamText">CHARGING</span>
+        </div>
+        <!-- Ship Active Ability Cooldown -->
+        <div class="status-row ability-row">
+          <span class="hud-label" id="hudAbilityLabel">ABILITY</span>
+          <div class="meter-bar-container">
+            <div class="meter-bar ability-bar" id="abilityBar" style="width: 100%;"></div>
+          </div>
+          <span class="hud-value ability-ready-tag" id="abilityText">READY [C]</span>
+        </div>
+      </div>
+
+      <!-- Top Center: Level Info & Boss Bar -->
+      <div class="hud-panel hud-wave">
+        <div class="wave-info">
+          <span class="wave-tag" id="hudSectorTag">SECTOR 1</span>
+          <span class="wave-number" id="waveNumber">LVL 01</span>
+          <span class="wave-enemies" id="enemiesRemaining">ENEMIES: 0</span>
+        </div>
+
+        <!-- Boss Health Bar (Hidden during regular levels) -->
+        <div class="boss-hud-container" id="bossHud">
+          <div class="boss-header">
+            <span class="boss-name" id="bossName">ASTRON DREADNOUGHT</span>
+            <span class="boss-phase" id="bossPhase">PHASE 1</span>
+          </div>
+          <div class="boss-bar-frame">
+            <div class="boss-bar-fill" id="bossBarFill" style="width: 100%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Right: Score, Combo & Galactic Credits -->
+      <div class="hud-panel hud-score">
+        <div class="score-row">
+          <span class="hud-label">SCORE</span>
+          <span class="score-display" id="scoreDisplay">000000</span>
+        </div>
+        <div class="credits-row">
+          <span class="hud-label">CREDITS</span>
+          <span class="credits-display" id="hudCreditsDisplay">⬡ 0</span>
+        </div>
+        <div class="combo-container" id="comboContainer">
+          <div class="combo-badge">
+            <span class="combo-mult" id="comboMultiplier">x1.0</span>
+            <span class="combo-label">COMBO</span>
+          </div>
+          <div class="combo-timer-track">
+            <div class="combo-timer-bar" id="comboTimerBar" style="width: 0%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Power-Up Badges (Bottom Center/Right) -->
+      <div class="powerup-buffs" id="powerupBuffs">
+        <!-- Dynamically injected active powerup pills -->
+      </div>
+
+      <!-- Quick Action Buttons (Pause & Sound) -->
+      <div class="hud-quick-actions">
+        <button class="hud-icon-btn" id="hudMuteBtn" title="Toggle Audio (M)">
+          <span class="icon">🔊</span>
+        </button>
+        <button class="hud-icon-btn" id="hudPauseBtn" title="Pause Game (ESC / P)">
+          <span class="icon">⏸</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile / Touch Controls Overlay -->
+    <div class="touch-controls" id="touchControls">
+      <div class="joystick-zone" id="joystickZone">
+        <div class="joystick-base" id="joystickBase">
+          <div class="joystick-stick" id="joystickStick"></div>
+        </div>
+      </div>
+      <div class="action-zone">
+        <button class="touch-btn ability-touch-btn" id="touchAbilityBtn">
+          <span class="btn-text">SPECIAL</span>
+        </button>
+        <button class="touch-btn special-btn" id="touchSpecialBtn">
+          <span class="btn-text">BEAM</span>
+        </button>
+        <button class="touch-btn fire-btn" id="touchFireBtn">
+          <span class="btn-text">FIRE</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- MAIN MENU OVERLAY -->
+    <div class="screen-overlay active" id="mainMenuScreen">
+      <div class="menu-backdrop"></div>
+      
+      <!-- Top Bar: Galactic Credits & Daily Bonus Alert -->
+      <div class="menu-top-bar">
+        <div class="credit-pill" id="menuCreditsPill">
+          <span class="credit-icon">⬡</span>
+          <span class="credit-value" id="menuCreditsVal">0</span>
+          <span class="credit-unit">CREDITS</span>
+        </div>
+        <button class="daily-reward-btn" id="btnOpenDaily">
+          <span class="daily-icon">🎁</span>
+          <span class="daily-text" id="dailyRewardBadge">DAILY REWARD</span>
+        </button>
+      </div>
+
+      <div class="menu-content">
+        <div class="game-branding">
+          <div class="brand-tag">TACTICAL VOID COMBAT // 100 LEVELS CAMPAIGN</div>
+          <h1 class="game-title">NEBULA</h1>
+          <h2 class="game-subtitle">LAST STAND</h2>
+          <div class="title-accent-line"></div>
+        </div>
+
+        <div class="menu-buttons">
+          <button class="btn btn-primary" id="btnPlayGame">
+            <span class="btn-glow"></span>
+            <span class="btn-content"><span class="btn-icon">▶</span> DEPLOY CURRENT LEVEL</span>
+          </button>
+          <button class="btn btn-secondary" id="btnLevelSelect">
+            <span class="btn-content"><span class="btn-icon">🗺</span> 100 LEVEL CAMPAIGN</span>
+          </button>
+          <button class="btn btn-secondary" id="btnHangar">
+            <span class="btn-content"><span class="btn-icon">🚀</span> SPACESHIP GARAGE</span>
+          </button>
+          <button class="btn btn-secondary" id="btnUpgrades">
+            <span class="btn-content"><span class="btn-icon">⚡</span> SHIP UPGRADES</span>
+          </button>
+          <button class="btn btn-secondary" id="btnMissions">
+            <span class="btn-content"><span class="btn-icon">🏆</span> MISSIONS & ACHIEVEMENTS</span>
+          </button>
+          <div class="menu-sub-row">
+            <button class="btn btn-secondary btn-half" id="btnHowToPlay">
+              <span class="btn-content"><span class="btn-icon">?</span> INTEL</span>
+            </button>
+            <button class="btn btn-secondary btn-half" id="btnSettings">
+              <span class="btn-content"><span class="btn-icon">⚙</span> SYSTEMS</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- High Score & Session Quick Stats -->
+        <div class="menu-footer-stats">
+          <div class="stat-pill">
+            <span class="stat-label">RECORD SCORE:</span>
+            <span class="stat-val" id="menuHighScore">000000</span>
+          </div>
+          <div class="stat-pill">
+            <span class="stat-label">UNLOCKED:</span>
+            <span class="stat-val" id="menuHighWave">LEVEL 1 / 100</span>
+          </div>
+          <div class="stat-pill">
+            <span class="stat-label">ACTIVE SHIP:</span>
+            <span class="stat-val highlight" id="menuActiveShip">STARFANG</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- 1. EPIC VICTORY SCREEN (TOP PRIORITY)                             -->
+    <!-- ================================================================= -->
+    <div class="screen-overlay" id="epicVictoryScreen">
+      <div class="epic-victory-wrapper">
+        <!-- Ambient Victory Rays & Particle Canvas -->
+        <canvas class="victory-ambient-canvas" id="victoryCanvas"></canvas>
+
+        <div class="victory-card">
+          <div class="victory-header">
+            <div class="victory-sub-banner" id="vicSubBanner">★ SECTOR BOSS ANNIHILATED ★</div>
+            
+            <!-- HUGE BOLD FUTURISTIC VICTORY TITLE -->
+            <h1 class="huge-victory-title" id="hugeVictoryTitle">VICTORY!</h1>
+            
+            <div class="victory-title-glow"></div>
+            <p class="victory-sector-name" id="vicSectorName">SECTOR 1: SOLAR FRONTIER CLEARED</p>
+          </div>
+
+          <div class="victory-rewards-container">
+            <!-- Credits Earned Banner -->
+            <div class="credit-reward-box">
+              <span class="cr-icon">⬡</span>
+              <div class="cr-info">
+                <span class="cr-label">GALACTIC CREDITS EARNED</span>
+                <span class="cr-amount" id="vicCreditsEarned">+2,500 CR</span>
+              </div>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="victory-stats-grid">
+              <div class="vic-stat-box">
+                <span class="v-label">LEVEL COMPLETED</span>
+                <span class="v-val" id="vicLevelCompleted">LEVEL 10</span>
+              </div>
+              <div class="vic-stat-box">
+                <span class="v-label">BOSS ELIMINATED</span>
+                <span class="v-val highlight-red" id="vicBossDefeated">HELIOS VANGUARD</span>
+              </div>
+              <div class="vic-stat-box">
+                <span class="v-label">MISSION SCORE</span>
+                <span class="v-val" id="vicFinalScore">124,500</span>
+              </div>
+              <div class="vic-stat-box">
+                <span class="v-label">MAX COMBO</span>
+                <span class="v-val" id="vicMaxCombo">x4.5</span>
+              </div>
+              <div class="vic-stat-box">
+                <span class="v-label">ACCURACY</span>
+                <span class="v-val" id="vicAccuracy">88%</span>
+              </div>
+              <div class="vic-stat-box">
+                <span class="v-label">SECTOR BONUS</span>
+                <span class="v-val highlight-gold" id="vicSectorBonus">+1,000 CR</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mandatory Victory Screen Buttons -->
+          <div class="victory-actions">
+            <button class="btn btn-primary btn-victory-pulse" id="btnVicNextLevel">
+              <span class="btn-glow"></span>
+              <span class="btn-content">▶ NEXT LEVEL</span>
+            </button>
+            <button class="btn btn-secondary" id="btnVicUpgrades">
+              <span class="btn-content">⚡ SHIP UPGRADES</span>
+            </button>
+            <button class="btn btn-secondary" id="btnVicMainMenu">
+              <span class="btn-content">COMMAND CENTER</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEVEL COMPLETED QUICK MODAL (FOR NON-BOSS WAVES) -->
+    <div class="screen-overlay" id="levelClearedScreen">
+      <div class="result-card level-clear-card">
+        <div class="result-banner">SECTOR SECTOR CLEAR</div>
+        <h2 class="result-title">LEVEL COMPLETE!</h2>
+        <p class="result-desc" id="levelClearDesc">Hostile forces neutralized. Next coordinates calculated.</p>
+
+        <div class="stats-summary-grid">
+          <div class="stat-box">
+            <span class="stat-label">SCORE</span>
+            <span class="stat-val highlight" id="lcScore">0</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">CREDITS EARNED</span>
+            <span class="stat-val highlight-gold" id="lcCredits">+150 CR</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">NEXT LEVEL</span>
+            <span class="stat-val" id="lcNextLevel">LEVEL 02</span>
+          </div>
+        </div>
+
+        <div class="menu-buttons horizontal">
+          <button class="btn btn-primary" id="btnLcNextLevel">
+            <span class="btn-content">PROCEED TO NEXT LEVEL</span>
+          </button>
+          <button class="btn btn-secondary" id="btnLcMenu">
+            <span class="btn-content">COMMAND CENTER</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- 2. CAMPAIGN / 100 LEVEL SELECTION MODAL                           -->
+    <!-- ================================================================= -->
+    <div class="screen-overlay" id="levelSelectModal">
+      <div class="modal-card modal-large">
+        <div class="modal-header">
+          <h3 class="modal-title">CAMPAIGN SECTOR ARCHIVES // 100 LEVELS</h3>
+          <button class="modal-close-btn" id="closeLevelSelect">&times;</button>
+        </div>
+        <div class="modal-body">
+          <!-- Sector Tabs (10 Sectors) -->
+          <div class="sector-tabs-bar" id="sectorTabsBar">
+            <!-- Injected dynamically -->
+          </div>
+
+          <!-- Sector Header Information -->
+          <div class="sector-banner" id="sectorBanner">
+            <div class="sector-meta">
+              <span class="sector-badge" id="sectorBadge">SECTOR 01</span>
+              <h4 class="sector-title" id="sectorTitle">SOLAR FRONTIER</h4>
+              <p class="sector-desc" id="sectorDesc">Outer rim solar defenses. Light drone squadrons and interceptors.</p>
+            </div>
+            <div class="sector-progress-box">
+              <span class="sec-prog-label">COMPLETION</span>
+              <span class="sec-prog-val" id="sectorProgressText">0 / 10 CLEARED</span>
+            </div>
+          </div>
+
+          <!-- 10 Level Buttons for Selected Sector -->
+          <div class="levels-grid" id="levelsGrid">
+            <!-- Dynamically populated 10 levels per sector -->
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="btnCloseLevelSelect">RETURN TO COMMAND</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- 3. SPACESHIP GARAGE (HANGAR) MODAL                                -->
+    <!-- ================================================================= -->
+    <div class="screen-overlay" id="hangarModal">
+      <div class="modal-card modal-large">
+        <div class="modal-header">
+          <div class="modal-header-left">
+            <h3 class="modal-title">FLEET HANGAR // SPACESHIP COLLECTION</h3>
+            <span class="hangar-subtitle">10 UNIQUE COMBAT CRAFT</span>
+          </div>
+          <div class="hangar-credits-display">
+            <span>BALANCE:</span>
+            <strong id="hangarCreditsVal">⬡ 0 CR</strong>
+          </div>
+          <button class="modal-close-btn" id="closeHangar">&times;</button>
+        </div>
+        <div class="modal-body hangar-grid">
+          <!-- Left: 2D Interactive Canvas Preview -->
+          <div class="hangar-preview-panel">
+            <div class="ship-canvas-container">
+              <canvas id="hangarShipCanvas" width="320" height="260"></canvas>
+            </div>
+            <div class="preview-ship-info">
+              <h4 class="ship-preview-name" id="shipPreviewName">STARFANG</h4>
+              <span class="ship-preview-class" id="shipPreviewClass">TACTICAL INTERCEPTOR</span>
+              <p class="ship-preview-desc" id="shipPreviewDesc">Standard starfleet interceptor. Balanced handling with dual plasma lasers.</p>
+            </div>
+          </div>
+
+          <!-- Right: Ship Specifications & Action -->
+          <div class="hangar-details-panel">
+            <div class="ship-stats-list">
+              <div class="ship-stat-row">
+                <span class="stat-name">FIREPOWER</span>
+                <div class="stat-meter"><div class="stat-fill" id="shipStatDamage" style="width: 50%;"></div></div>
+              </div>
+              <div class="ship-stat-row">
+                <span class="stat-name">FIRE RATE</span>
+                <div class="stat-meter"><div class="stat-fill" id="shipStatFireRate" style="width: 60%;"></div></div>
+              </div>
+              <div class="ship-stat-row">
+                <span class="stat-name">SPEED & AGILITY</span>
+                <div class="stat-meter"><div class="stat-fill" id="shipStatSpeed" style="width: 65%;"></div></div>
+              </div>
+              <div class="ship-stat-row">
+                <span class="stat-name">HULL & SHIELDS</span>
+                <div class="stat-meter"><div class="stat-fill" id="shipStatDefense" style="width: 50%;"></div></div>
+              </div>
+            </div>
+
+            <!-- Ship Special Ability Card -->
+            <div class="ship-ability-box">
+              <span class="ability-title">SPECIAL ABILITY [KEY: C]</span>
+              <strong class="ability-name" id="shipPreviewAbility">MICRO-MISSILE VOLLEY</strong>
+              <p class="ability-desc" id="shipPreviewAbilityDesc">Fires a rapid spread of 6 tracking micro-missiles that seek out nearby hostiles.</p>
+            </div>
+
+            <!-- Action Area (Select / Buy) -->
+            <div class="hangar-actions" id="hangarActionArea">
+              <!-- Dynamically populated (BUY or SELECT) -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Ship Carousel Grid -->
+        <div class="hangar-ship-selector" id="hangarShipSelector">
+          <!-- 10 Ship thumbnail cards injected here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- 4. SHIP UPGRADE WORKSHOP MODAL                                    -->
+    <!-- ================================================================= -->
+    <div class="screen-overlay" id="upgradesModal">
+      <div class="modal-card modal-large">
+        <div class="modal-header">
+          <div class="modal-header-left">
+            <h3 class="modal-title">STARFLEET WORKSHOP // SHIP UPGRADES</h3>
+            <span class="hangar-subtitle">PERMANENT ATTRIBUTE ENHANCEMENTS</span>
+          </div>
+          <div class="hangar-credits-display">
+            <span>AVAILABLE CREDITS:</span>
+            <strong id="workshopCreditsVal">⬡ 0 CR</strong>
+          </div>
+          <button class="modal-close-btn" id="closeUpgrades">&times;</button>
+        </div>
+        <div class="modal-body upgrades-grid" id="upgradesGrid">
+          <!-- 7 Upgrade Cards dynamically injected -->
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="btnCloseUpgrades">RETURN TO COMMAND</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- 5. MISSIONS & ACHIEVEMENTS MODAL                                  -->
+    <!-- ================================================================= -->
+    <div class="screen-overlay" id="missionsModal">
+      <div class="modal-card modal-large">
+        <div class="modal-header">
+          <h3 class="modal-title">FLEET COMMENDATIONS & ACHIEVEMENTS</h3>
+          <button class="modal-close-btn" id="closeMissions">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="missions-tab-buttons">
+            <button class="subtab-btn active" id="tabBtnAchievements">ACHIEVEMENTS</button>
+            <button class="subtab-btn" id="tabBtnMissions">SECTOR MISSIONS</button>
+          </div>
+
+          <div class="missions-content-container" id="missionsContainer">
+            <!-- Dynamic list of achievements and challenges -->
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="btnCloseMissions">CLOSE ARCHIVES</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- 6. DAILY REWARDS MODAL                                            -->
+    <!-- ================================================================= -->
+    <div class="screen-overlay" id="dailyRewardModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 class="modal-title">DAILY LOGISTICS SUPPLY DROP</h3>
+          <button class="modal-close-btn" id="closeDailyReward">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="daily-intro">Return daily to receive escalating Galactic Credits and fleet supplies!</p>
+          <div class="daily-streak-track" id="dailyCardsContainer">
+            <!-- 7 Days Cards -->
+          </div>
+          <div class="daily-action-box">
+            <button class="btn btn-primary btn-large" id="btnClaimDaily">CLAIM SUPPLY CRATE</button>
+            <span class="daily-timer-note" id="dailyTimerNote">READY TO CLAIM!</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- 7. LEVEL 100 GRAND CAMPAIGN FINALE MODAL                          -->
+    <!-- ================================================================= -->
+    <div class="screen-overlay" id="campaignCompleteScreen">
+      <div class="result-card grand-finale-theme">
+        <div class="grand-banner">★ GALAXY LIBERATED // LEVEL 100 COMPLETE ★</div>
+        <h1 class="grand-title">ULTIMATE VICTORY!</h1>
+        <p class="grand-desc">The Omega Protocol has been neutralized. You have conquered all 100 Sectors and saved the cosmos!</p>
+
+        <div class="stats-summary-grid">
+          <div class="stat-box">
+            <span class="stat-label">TOTAL SCORE</span>
+            <span class="stat-val highlight-gold" id="ccFinalScore">0</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">TOTAL CREDITS EARNED</span>
+            <span class="stat-val" id="ccCreditsEarned">⬡ 0</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">BOSSES ANNIHILATED</span>
+            <span class="stat-val highlight" id="ccBossesSlain">10 / 10</span>
+          </div>
+        </div>
+
+        <div class="menu-buttons horizontal">
+          <button class="btn btn-primary" id="btnCcEndless">CONTINUE IN ENDLESS VOID</button>
+          <button class="btn btn-secondary" id="btnCcMenu">COMMAND CENTER</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- HOW TO PLAY MODAL -->
+    <div class="screen-overlay" id="howToPlayModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 class="modal-title">MISSION BRIEFING & PROTOCOLS</h3>
+          <button class="modal-close-btn" id="closeHowToPlay">&times;</button>
+        </div>
+        <div class="modal-body briefing-grid">
+          <!-- Controls Section -->
+          <div class="briefing-section">
+            <h4 class="section-heading">FLIGHT CONTROLS</h4>
+            <div class="control-row">
+              <span class="key-badge">W A S D</span> or <span class="key-badge">↑ ← ↓ →</span>
+              <span class="control-desc">Maneuver Starfighter (Smooth Inertia & Banking)</span>
+            </div>
+            <div class="control-row">
+              <span class="key-badge">SPACE</span> or <span class="key-badge">LEFT CLICK</span>
+              <span class="control-desc">Fire Twin Plasma Lasers</span>
+            </div>
+            <div class="control-row">
+              <span class="key-badge">C</span> or <span class="key-badge">SPECIAL BUTTON</span>
+              <span class="control-desc">Trigger Ship's Unique Ability</span>
+            </div>
+            <div class="control-row">
+              <span class="key-badge">E</span> or <span class="key-badge">X</span> or <span class="key-badge">RIGHT CLICK</span>
+              <span class="control-desc">Fire Hyper Beam (When 100% Charged)</span>
+            </div>
+            <div class="control-row">
+              <span class="key-badge">ESC</span> or <span class="key-badge">P</span>
+              <span class="control-desc">Tactical Pause</span>
+            </div>
+          </div>
+
+          <!-- Power-ups Section -->
+          <div class="briefing-section">
+            <h4 class="section-heading">TACTICAL POWER-UPS</h4>
+            <div class="powerup-grid">
+              <div class="powerup-card">
+                <span class="pu-icon pu-rapid">⚡</span>
+                <div class="pu-details">
+                  <strong>Rapid Fire</strong>
+                  <p>Triples primary laser fire rate for 8 seconds.</p>
+                </div>
+              </div>
+              <div class="powerup-card">
+                <span class="pu-icon pu-triple">❖</span>
+                <div class="pu-details">
+                  <strong>Triple Spread</strong>
+                  <p>Expands laser cannons to a wide 3-bolt spread.</p>
+                </div>
+              </div>
+              <div class="powerup-card">
+                <span class="pu-icon pu-shield">🛡</span>
+                <div class="pu-details">
+                  <strong>Aegis Shield</strong>
+                  <p>Restores full shield & grants energy barrier.</p>
+                </div>
+              </div>
+              <div class="powerup-card">
+                <span class="pu-icon pu-repair">✚</span>
+                <div class="pu-details">
+                  <strong>Nanite Repair</strong>
+                  <p>Instantly repairs 35% of ship hull integrity.</p>
+                </div>
+              </div>
+              <div class="powerup-card">
+                <span class="pu-icon pu-beam">✦</span>
+                <div class="pu-details">
+                  <strong>Hyper Core</strong>
+                  <p>Instantly charges your devastating Hyper Beam.</p>
+                </div>
+              </div>
+              <div class="powerup-card">
+                <span class="pu-icon pu-emp">💥</span>
+                <div class="pu-details">
+                  <strong>EMP Blast</strong>
+                  <p>Clears all enemy bullets and shocks all hostiles.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="btnBriefingReady">PROCEED TO COMBAT</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS MODAL -->
+    <div class="screen-overlay" id="settingsModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 class="modal-title">SYSTEMS CONFIGURATION</h3>
+          <button class="modal-close-btn" id="closeSettings">&times;</button>
+        </div>
+        <div class="modal-body settings-grid">
+          <!-- Audio Settings -->
+          <div class="setting-group">
+            <h4 class="section-heading">SYNTHESIZER AUDIO</h4>
+            
+            <div class="setting-row">
+              <label for="masterVolume">Master Volume</label>
+              <div class="slider-wrapper">
+                <input type="range" id="masterVolume" min="0" max="100" value="80" class="neon-slider">
+                <span class="slider-val" id="masterVolumeVal">80%</span>
+              </div>
+            </div>
+
+            <div class="setting-row">
+              <label for="musicVolume">Atmospheric Synthwave Music</label>
+              <div class="slider-wrapper">
+                <input type="range" id="musicVolume" min="0" max="100" value="70" class="neon-slider">
+                <span class="slider-val" id="musicVolumeVal">70%</span>
+              </div>
+            </div>
+
+            <div class="setting-row">
+              <label for="sfxVolume">Combat Sound Effects</label>
+              <div class="slider-wrapper">
+                <input type="range" id="sfxVolume" min="0" max="100" value="85" class="neon-slider">
+                <span class="slider-val" id="sfxVolumeVal">85%</span>
+              </div>
+            </div>
+
+            <div class="setting-row">
+              <label for="muteToggle">Mute All Audio</label>
+              <input type="checkbox" id="muteToggle" class="neon-toggle">
+            </div>
+          </div>
+
+          <!-- Gameplay & Visual Settings -->
+          <div class="setting-group">
+            <h4 class="section-heading">GAMEPLAY & GRAPHICS</h4>
+            
+            <div class="setting-row">
+              <label for="screenShakeToggle">Screen Shake</label>
+              <input type="checkbox" id="screenShakeToggle" class="neon-toggle" checked>
+            </div>
+
+            <div class="setting-row">
+              <label for="autoFireToggle">Auto-Fire Lasers</label>
+              <input type="checkbox" id="autoFireToggle" class="neon-toggle">
+            </div>
+
+            <div class="setting-row">
+              <label for="mouseControlToggle">Enable Mouse Flight Control</label>
+              <input type="checkbox" id="mouseControlToggle" class="neon-toggle">
+            </div>
+
+            <div class="setting-row">
+              <label for="particleQuality">Particle Density</label>
+              <select id="particleQuality" class="neon-select">
+                <option value="high" selected>High (Cinematic Glow)</option>
+                <option value="medium">Medium (Balanced)</option>
+                <option value="low">Low (Performance Boost)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Storage Reset -->
+          <div class="setting-group danger-zone">
+            <button class="btn btn-danger" id="btnResetData">RESET ALL PROGRESS & DATA</button>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="btnSaveSettings">CONFIRM & SAVE</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAUSE SCREEN -->
+    <div class="screen-overlay" id="pauseScreen">
+      <div class="pause-card">
+        <h2 class="pause-title">TACTICAL PAUSE</h2>
+        <div class="pause-status-line">SYSTEMS STANDBY</div>
+        <div class="menu-buttons">
+          <button class="btn btn-primary" id="btnResumeGame">
+            <span class="btn-content">RESUME FLIGHT</span>
+          </button>
+          <button class="btn btn-secondary" id="btnRestartFromPause">
+            <span class="btn-content">RESTART LEVEL</span>
+          </button>
+          <button class="btn btn-secondary" id="btnSettingsFromPause">
+            <span class="btn-content">SETTINGS</span>
+          </button>
+          <button class="btn btn-danger" id="btnQuitToMenu">
+            <span class="btn-content">ABORT TO COMMAND</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- GAME OVER SCREEN -->
+    <div class="screen-overlay" id="gameOverScreen">
+      <div class="result-card defeat-theme">
+        <div class="result-banner">HULL DESTROYED</div>
+        <h2 class="result-title">MISSION FAILED</h2>
+        <p class="result-desc">Your starfighter was overwhelmed by enemy fleet fire.</p>
+
+        <div class="stats-summary-grid">
+          <div class="stat-box">
+            <span class="stat-label">FINAL SCORE</span>
+            <span class="stat-val highlight" id="goFinalScore">0</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">CREDITS EARNED</span>
+            <span class="stat-val highlight-gold" id="goCreditsEarned">+0 CR</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">LEVEL REACHED</span>
+            <span class="stat-val" id="goWaveReached">LEVEL 1</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">HOSTILES DESTROYED</span>
+            <span class="stat-val" id="goEnemiesKilled">0</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">MAX COMBO</span>
+            <span class="stat-val" id="goMaxCombo">x1.0</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">COMBAT ACCURACY</span>
+            <span class="stat-val" id="goAccuracy">0%</span>
+          </div>
+        </div>
+
+        <div class="menu-buttons horizontal">
+          <button class="btn btn-primary" id="btnRetryGame">
+            <span class="btn-glow"></span>
+            <span class="btn-content">DEPLOY AGAIN</span>
+          </button>
+          <button class="btn btn-secondary" id="btnGoMenu">
+            <span class="btn-content">COMMAND CENTER</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div> <!-- /game-container -->
+
+  <!-- Load Game Engine -->
+  <script src="game.js"></script>
+</body>
+</html>
