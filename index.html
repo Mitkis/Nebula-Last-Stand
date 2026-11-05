@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Python Calculator | Yassin Mitkis</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; display: grid; place-items: center;
+      padding: 24px; color: #eef2ff; font-family: system-ui, sans-serif;
+      background: radial-gradient(circle at top, #263653 0, #101827 48%, #090e18 100%);
+    }
+    .wrap { width: min(100%, 390px); }
+    .brand { text-align: center; margin-bottom: 18px; }
+    .brand h1 { margin: 0; font-size: 1.55rem; letter-spacing: .02em; }
+    .brand p { margin: 6px 0 0; color: #9eacc2; font-size: .9rem; }
+    .calculator {
+      padding: 20px; border: 1px solid #35445d; border-radius: 26px;
+      background: rgba(17, 27, 43, .94); box-shadow: 0 24px 70px #0008;
+    }
+    .screen {
+      min-height: 112px; display: flex; flex-direction: column;
+      justify-content: end; align-items: end; padding: 14px 10px 20px;
+      overflow: hidden;
+    }
+    #history { min-height: 24px; color: #91a1ba; font-size: .95rem; }
+    #display {
+      width: 100%; text-align: right; border: 0; outline: 0;
+      color: #f8fafc; background: transparent; font-size: 2.65rem;
+      font-weight: 600; font-variant-numeric: tabular-nums;
+    }
+    .keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    button {
+      min-height: 66px; border: 1px solid #34445e; border-radius: 17px;
+      color: #edf3ff; background: #202e43; font-size: 1.25rem;
+      font-weight: 550; cursor: pointer; transition: transform .12s, background .12s;
+    }
+    button:hover { background: #30425e; }
+    button:active { transform: scale(.96); }
+    .utility { color: #a9c7ff; background: #263b59; }
+    .operator { color: #9fd4ff; background: #203c58; }
+    .equals { color: #071522; background: #8bd3ff; border-color: #8bd3ff; }
+    .equals:hover { background: #b0e2ff; }
+    .zero { grid-column: span 2; }
+    .footer { text-align: center; color: #8392a8; font-size: .78rem; margin: 16px 0 0; }
+    .footer a { color: #9fd4ff; text-decoration: none; }
+    @media (max-width: 360px) {
+      .calculator { padding: 14px; }
+      button { min-height: 58px; }
+      #display { font-size: 2.2rem; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="brand">
+      <h1>🧮 Python Calculator</h1>
+      <p>A simple calculator by Yassin Mitkis</p>
+    </header>
+    <section class="calculator" aria-label="Calculator">
+      <div class="screen">
+        <div id="history" aria-live="polite"></div>
+        <input id="display" value="0" aria-label="Display" readonly>
+      </div>
+      <div class="keys">
+        <button class="utility" data-action="clear">AC</button>
+        <button class="utility" data-action="delete">DEL</button>
+        <button class="utility" data-action="sign">±</button>
+        <button class="operator" data-op="/">÷</button>
+
+        <button data-number="7">7</button><button data-number="8">8</button>
+        <button data-number="9">9</button><button class="operator" data-op="*">×</button>
+
+        <button data-number="4">4</button><button data-number="5">5</button>
+        <button data-number="6">6</button><button class="operator" data-op="-">−</button>
+
+        <button data-number="1">1</button><button data-number="2">2</button>
+        <button data-number="3">3</button><button class="operator" data-op="+">+</button>
+
+        <button class="zero" data-number="0">0</button>
+        <button data-action="decimal">.</button>
+        <button class="equals" data-action="equals">=</button>
+      </div>
+    </section>
+    <p class="footer">Built with HTML, CSS and JavaScript ·
+      <a href="https://github.com/" target="_blank" rel="noopener">View on GitHub</a>
+    </p>
+  </main>
+  <script>
+    const display = document.getElementById('display');
+    const history = document.getElementById('history');
+    let current = '0', stored = null, operator = null, fresh = false;
+
+    function render() { display.value = current; }
+    function inputNumber(n) {
+      if (fresh || current === 'Error') { current = n; fresh = false; }
+      else current = current === '0' ? n : current + n;
+      render();
+    }
+    function calculate(a, op, b) {
+      if (op === '+') return a + b;
+      if (op === '-') return a - b;
+      if (op === '*') return a * b;
+      if (op === '/') return b === 0 ? null : a / b;
+      return b;
+    }
+    function tidy(n) {
+      return Number.parseFloat(n.toPrecision(12)).toString();
+    }
+    function chooseOperator(op) {
+      if (current === 'Error') return;
+      const value = Number(current);
+      if (operator && !fresh) {
+        const result = calculate(stored, operator, value);
+        if (result === null) { current = 'Cannot divide by zero'; stored = null; operator = null; fresh = true; render(); return; }
+        stored = result; current = tidy(result); render();
+      } else stored = value;
+      operator = op; fresh = true;
+      history.textContent = `${tidy(stored)} ${op}`;
+    }
+    function equals() {
+      if (!operator || stored === null || current === 'Error') return;
+      const right = Number(current), left = stored, op = operator;
+      const result = calculate(left, op, right);
+      history.textContent = `${tidy(left)} ${op} ${tidy(right)} =`;
+      current = result === null ? 'Cannot divide by zero' : tidy(result);
+      stored = null; operator = null; fresh = true; render();
+    }
+    document.querySelector('.keys').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.number !== undefined) inputNumber(b.dataset.number);
+      else if (b.dataset.op) chooseOperator(b.dataset.op);
+      else if (b.dataset.action === 'clear') {
+        current = '0'; stored = null; operator = null; fresh = false; history.textContent = ''; render();
+      } else if (b.dataset.action === 'delete') {
+        if (fresh || current === 'Error' || current === 'Cannot divide by zero') current = '0';
+        else current = current.length > 1 ? current.slice(0, -1) : '0';
+        render();
+      } else if (b.dataset.action === 'decimal') {
+        if (fresh || current === 'Error') { current = '0.'; fresh = false; }
+        else if (!current.includes('.')) current += '.';
+        render();
+      } else if (b.dataset.action === 'sign') {
+        if (!['Error', 'Cannot divide by zero'].includes(current) && Number(current) !== 0) current = String(-Number(current));
+        render();
+      } else if (b.dataset.action === 'equals') equals();
+    });
+    document.addEventListener('keydown', e => {
+      if (/^[0-9]$/.test(e.key)) inputNumber(e.key);
+      else if (['+', '-', '*', '/'].includes(e.key)) chooseOperator(e.key);
+      else if (e.key === 'Enter' || e.key === '=') { e.preventDefault(); equals(); }
+      else if (e.key === '.') document.querySelector('[data-action="decimal"]').click();
+      else if (e.key === 'Backspace') document.querySelector('[data-action="delete"]').click();
+      else if (e.key === 'Escape') document.querySelector('[data-action="clear"]').click();
+    });
+  </script>
+</body>
+</html>
